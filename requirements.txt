@@ -1,0 +1,11 @@
+vllm
+transformers
+torch
+fastapi
+uvicorn
+pydantic
+numpy
+rank_bm25
+PyYAML
+llama-index
+python-magic
