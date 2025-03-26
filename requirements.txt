@@ -9,3 +9,4 @@ rank_bm25
 PyYAML
 llama-index
 python-magic
+chromadb>=0.4.6

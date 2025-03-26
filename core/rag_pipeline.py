@@ -3,7 +3,7 @@ import numpy as np
 import asyncio
 from models.embedding import EmbeddingModel
 from models.llm import AsyncDeepSeekLLM
-from database.faiss_client import AsyncFAISSClient
+from database.chroma_client import AsyncChromaClient
 from database.hybrid_search import HybridSearcher
 from models.rerank import Reranker
 from utils.document_processor import DocumentProcessor
@@ -13,7 +13,7 @@ class AsyncRAGPipeline:
         self,
         embedding_model: EmbeddingModel,
         llm: AsyncDeepSeekLLM,
-        vector_store: AsyncFAISSClient,  # 改为 FAISS 客户端
+        vector_store: AsyncChromaClient,
         reranker: Reranker,
         document_processor: DocumentProcessor,
         top_k: int = 5,
@@ -227,7 +227,7 @@ class AsyncRAGPipeline:
             # 3. 生成嵌入
             embeddings = self.embedding_model.encode(chunks)
             
-            # 4. 存入 FAISS
+            # 4. 存入 Chroma
             success = await self.vector_store.insert(chunks, embeddings)
             
             if success:

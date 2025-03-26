@@ -19,10 +19,10 @@ model:
     batch_size: 16
 
 vector_store:
-  type: "faiss"
-  save_path: "./faiss_index"
+  type: "chroma"
+  persist_directory: "./database/chroma_db"
+  collection_name: "default_collection"
   dim: 1024
-  index_type: "L2"  # 或 "IP" 用于余弦相似度
 
 chunking:
   chunk_size: 512

@@ -7,7 +7,7 @@ from typing import Optional, List
 from models.embedding import EmbeddingModel
 from models.llm import AsyncDeepSeekLLM
 from models.rerank import Reranker
-from database.faiss_client import AsyncFAISSClient
+from database.chroma_client import AsyncChromaClient  # 修改为Chroma客户端
 from utils.document_processor import DocumentProcessor
 from core.rag_pipeline import AsyncRAGPipeline
 
@@ -30,11 +30,11 @@ async def initialize_components(config):
         max_concurrent_requests=config["model"]["llm"]["max_concurrent_requests"]
     )
     
-    # Initialize Milvus client
-    vector_store = AsyncFAISSClient(
-        dim=config["vector_store"]["dim"],
-        index_type=config["vector_store"]["index_type"],
-        save_path=config["vector_store"]["save_path"]
+    # 初始化Chroma客户端
+    vector_store = AsyncChromaClient(
+        persist_directory=config["vector_store"]["persist_directory"],
+        collection_name=config["vector_store"]["collection_name"],
+        embedding_dimension=config["vector_store"]["dim"]
     )
     
     # Initialize reranker
@@ -54,7 +54,7 @@ async def initialize_components(config):
     return AsyncRAGPipeline(
         embedding_model=embedding_model,
         llm=llm,
-        vector_store=vector_store,  # 使用 FAISS
+        vector_store=vector_store,  # 使用Chroma客户端
         reranker=reranker,
         document_processor=document_processor,
         top_k=config["retrieval"]["top_k"],
@@ -80,11 +80,6 @@ async def lifespan(app: FastAPI):
         print("Shutting down...")
         if hasattr(app.state, "rag"):
             try:
-                # 保存 FAISS 索引（如果存在）
-                if hasattr(app.state.rag.vector_store, "save_index"):
-                    app.state.rag.vector_store.save_index()
-                    print("FAISS index saved successfully")
-                
                 # 清理其他资源
                 # 例如：清理 embedding model 的 CUDA 缓存
                 if hasattr(app.state.rag.embedding_model, "model"):
