@@ -20,9 +20,7 @@ async def load_config():
 async def initialize_components(config):
     # Initialize embedding model
     embedding_model = EmbeddingModel(
-        model_name=config["model"]["embedding"]["model_name"],
-        device=config["model"]["embedding"]["device"],
-        model_path=config["model"]["embedding"]["model_path"]
+        model_name_or_path=config.embedding.model_path  # Use model_name_or_path instead of model_name
     )
     
     # Initialize LLM

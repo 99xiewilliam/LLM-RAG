@@ -4,23 +4,32 @@ from transformers import AutoModel, AutoTokenizer
 import os
 
 class EmbeddingModel:
-    def __init__(self, model_name_or_path):
+    def __init__(self, model_name_or_path=None, model_name=None):
+        # Use model_name if provided, otherwise use model_name_or_path
+        model_path = model_name if model_name is not None else model_name_or_path
+        
         try:
-            # Use sentence-transformers for all models
-            from sentence_transformers import SentenceTransformer
-            self.model = SentenceTransformer(model_name_or_path)
-        except Exception as e:
-            # Fall back to manual loading if sentence-transformers fails
-            try:
-                from transformers import AutoModel, AutoTokenizer
+            if "bge" in model_path.lower():
+                # For BGE models, we need to explicitly set the model architecture
+                from transformers import AutoModel, AutoTokenizer, AutoConfig
                 
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
-                self.model = AutoModel.from_pretrained(model_name_or_path, trust_remote_code=True)
-            except Exception as e2:
-                raise RuntimeError(f"Failed to load embedding model: {str(e)} and fallback also failed: {str(e2)}")
-
-            self.device = device
-            self.model.eval()
+                # Create a config with explicit model_type
+                config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+                config.model_type = "bert"  # BGE models are BERT-based
+                
+                # Load with the updated config
+                self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(
+                    model_path,
+                    config=config,
+                    trust_remote_code=True
+                )
+            else:
+                # Original code for other embedding models
+                from sentence_transformers import SentenceTransformer
+                self.model = SentenceTransformer(model_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load embedding model: {str(e)}")
 
     @torch.no_grad()
     def encode(self, texts: Union[str, List[str]]) -> torch.Tensor:
