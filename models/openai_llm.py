@@ -31,11 +31,15 @@ class AsyncOpenAILLM(BaseLLM):
     ) -> str:
         """生成文本完成"""
         try:
-            completion_url = f"{self.api_base_url}/completions"
+            # 使用 Chat API 而不是 Completions API
+            completion_url = f"{self.api_base_url}/chat/completions"
+            
+            # 构建聊天消息格式
+            messages = [{"role": "user", "content": prompt}]
             
             payload = {
                 "model": self.model,
-                "prompt": prompt,
+                "messages": messages,
                 "max_tokens": max_tokens or self.default_max_tokens,
                 "temperature": temperature or self.default_temperature,
                 "stream": False
@@ -56,7 +60,8 @@ class AsyncOpenAILLM(BaseLLM):
                         return f"生成失败: API错误 {response.status}"
                     
                     response_json = await response.json()
-                    return response_json['choices'][0]['text']
+                    # 从聊天完成响应中提取内容
+                    return response_json['choices'][0]['message']['content']
                     
         except Exception as e:
             self.logger.error(f"生成文本时发生错误: {str(e)}")
@@ -116,11 +121,15 @@ class AsyncOpenAILLM(BaseLLM):
     ) -> AsyncGenerator[str, None]:
         """生成文本完成（流式）"""
         try:
-            completion_url = f"{self.api_base_url}/completions"
+            # 使用 Chat API 而不是 Completions API
+            completion_url = f"{self.api_base_url}/chat/completions"
+            
+            # 构建聊天消息格式
+            messages = [{"role": "user", "content": prompt}]
             
             payload = {
                 "model": self.model,
-                "prompt": prompt,
+                "messages": messages,
                 "max_tokens": max_tokens or self.default_max_tokens,
                 "temperature": temperature or self.default_temperature,
                 "stream": True
@@ -142,25 +151,33 @@ class AsyncOpenAILLM(BaseLLM):
                         return
                     
                     # 处理流式响应
+                    buffer = ""
                     async for line in response.content:
-                        line = line.strip()
-                        if not line:
+                        line_str = line.decode('utf-8').strip()
+                        if not line_str:
                             continue
                         
-                        if line.startswith(b"data:"):
-                            data = line[5:].strip()
-                            if data == b"[DONE]":
-                                break
-                                
-                            try:
-                                chunk = json.loads(data)
-                                if len(chunk["choices"]) > 0:
-                                    text = chunk["choices"][0].get("text", "")
-                                    if text:
-                                        yield text
-                            except Exception as e:
-                                self.logger.error(f"解析响应时发生错误: {str(e)}")
-                                continue
+                        buffer += line_str
+                        if buffer.endswith('\n\n'):
+                            lines = buffer.split('\n\n')
+                            buffer = ""
+                            
+                            for line_data in lines:
+                                if not line_data:
+                                    continue
+                                    
+                                if line_data.startswith('data: '):
+                                    data = line_data[6:]
+                                    if data == '[DONE]':
+                                        continue
+                                        
+                                    try:
+                                        json_data = json.loads(data)
+                                        content = json_data.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                                        if content:
+                                            yield content
+                                    except Exception as e:
+                                        self.logger.error(f"解析流式响应时发生错误: {str(e)}")
                 
         except Exception as e:
             self.logger.error(f"流式生成文本时发生错误: {str(e)}")
