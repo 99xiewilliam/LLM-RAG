@@ -169,6 +169,9 @@ async def add_documents(doc_input: DocumentInput):
         return {"error": str(e)}
 
 
+# Gunicorn 配置
+# 可以使用这个来运行: gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:50052
+# 注意：由于使用了异步和GPU资源，建议worker数量设为1，避免资源竞争
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=50052)
