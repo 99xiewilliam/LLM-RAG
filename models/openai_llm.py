@@ -121,16 +121,21 @@ class AsyncOpenAILLM(BaseLLM):
     ) -> AsyncGenerator[str, None]:
         """生成文本完成（流式）"""
         try:
-            # 使用 Chat API 而不是 Completions API
+            # 使用 Chat API 
             completion_url = f"{self.api_base_url}/chat/completions"
             
             # 构建聊天消息格式
             messages = [{"role": "user", "content": prompt}]
             
+            # 调整max_tokens以适应模型限制
+            # 粗略估计输入tokens
+            estimated_input_tokens = len(prompt.split()) * 1.3
+            safe_max_tokens = max(256, min(1024, 2048 - int(estimated_input_tokens)))
+            
             payload = {
                 "model": self.model,
                 "messages": messages,
-                "max_tokens": max_tokens or self.default_max_tokens,
+                "max_tokens": max_tokens or safe_max_tokens,  # 使用安全值
                 "temperature": temperature or self.default_temperature,
                 "stream": True
             }
@@ -150,35 +155,39 @@ class AsyncOpenAILLM(BaseLLM):
                         yield f"生成失败: API错误 {response.status}"
                         return
                     
-                    # 处理流式响应
+                    # 改进的流式响应处理
                     buffer = ""
                     async for line in response.content:
-                        line_str = line.decode('utf-8').strip()
-                        if not line_str:
+                        line_str = line.decode('utf-8')
+                        if not line_str.strip():
                             continue
                         
-                        buffer += line_str
-                        if buffer.endswith('\n\n'):
-                            lines = buffer.split('\n\n')
-                            buffer = ""
+                        # 处理完整的SSE消息
+                        if line_str.startswith('data: '):
+                            data = line_str[6:].strip()
                             
-                            for line_data in lines:
-                                if not line_data:
-                                    continue
+                            # 调试信息
+                            print(f"收到数据: {data}")
+                            
+                            if data == '[DONE]':
+                                break
+                                
+                            try:
+                                json_data = json.loads(data)
+                                content = json_data.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                                
+                                # 检查content是否存在
+                                if content:
+                                    print(f"提取到内容: {content}")
+                                    yield content
+                                else:
+                                    print(f"无内容在: {json_data}")
                                     
-                                if line_data.startswith('data: '):
-                                    data = line_data[6:]
-                                    if data == '[DONE]':
-                                        continue
-                                        
-                                    try:
-                                        json_data = json.loads(data)
-                                        content = json_data.get('choices', [{}])[0].get('delta', {}).get('content', '')
-                                        if content:
-                                            yield content
-                                    except Exception as e:
-                                        self.logger.error(f"解析流式响应时发生错误: {str(e)}")
-                
+                            except json.JSONDecodeError as e:
+                                print(f"JSON解析错误: {e} - 在数据: {data}")
+                            except Exception as e:
+                                self.logger.error(f"处理响应时错误: {str(e)}")
+            
         except Exception as e:
             self.logger.error(f"流式生成文本时发生错误: {str(e)}")
             yield f"生成失败: {str(e)}"
