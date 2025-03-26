@@ -28,9 +28,11 @@ async def initialize_components(config):
     
     # 初始化 Chroma 客户端
     vector_store = AsyncChromaClient(
-        persist_directory=config["vector_store"]["persist_directory"],
+        host=config["vector_store"].get("host"),
+        port=config["vector_store"].get("port"),
         collection_name=config["vector_store"]["collection_name"],
-        embedding_dimension=config["vector_store"]["dim"]
+        embedding_dimension=config["vector_store"]["dim"],
+        persist_directory=config["vector_store"].get("persist_directory")
     )
     
     # 初始化 reranker

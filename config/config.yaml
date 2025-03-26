@@ -26,8 +26,9 @@ model:
 
 vector_store:
   type: "chroma"
-  persist_directory: "./database/chroma_db"
-  collection_name: "default_collection"
+  host: "localhost"
+  port: 8090
+  collection_name: "apec_collection"
   dim: 1024
 
 chunking:

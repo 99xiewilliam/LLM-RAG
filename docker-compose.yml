@@ -1,0 +1,12 @@
+version: '3.9'
+
+services:
+  chroma:
+    image: chromadb/chroma
+    volumes:
+      - ./chroma_data:/chroma/chroma_data
+    ports:
+      - 8090:8000  # 将本地8090端口映射到容器的8000端口
+    environment:
+      - CHROMA_DB_IMPL=duckdb+parquet
+      - PERSIST_DIRECTORY=/chroma/chroma_data

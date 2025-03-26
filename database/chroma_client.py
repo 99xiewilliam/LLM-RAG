@@ -5,35 +5,34 @@ import chromadb
 from chromadb.config import Settings
 
 class AsyncChromaClient:
-    def __init__(
-        self,
-        persist_directory: str = "./database/chroma_db",
-        collection_name: str = "apec_collection",
-        embedding_dimension: int = 1024
-    ):
-        self.persist_directory = persist_directory
-        self.collection_name = collection_name
+    def __init__(self, host: str, port: int, collection_name: str, embedding_dimension: int, persist_directory: str = None):
+        """
+        初始化 ChromaDB 客户端
+        
+        Args:
+            host: Chroma服务器主机名
+            port: Chroma服务器端口
+            collection_name: 集合名称
+            embedding_dimension: 嵌入向量维度
+            persist_directory: 本地模式的持久化目录 (HTTP模式下不使用)
+        """
+        import chromadb
+        
+        # 根据是否提供host和port决定使用HTTP客户端还是本地客户端
+        if host and port:
+            # 使用HTTP客户端连接到Docker中的Chroma
+            self.client = chromadb.HttpClient(host=host, port=port)
+        else:
+            # 使用本地客户端
+            self.client = chromadb.PersistentClient(path=persist_directory)
+        
+        # 获取或创建集合
+        self.collection = self.client.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"}  # 使用余弦相似度
+        )
+        
         self.embedding_dimension = embedding_dimension
-        
-        # 确保目录存在
-        os.makedirs(os.path.dirname(persist_directory), exist_ok=True)
-        
-        # 初始化Chroma客户端
-        self.client = chromadb.Client(Settings(
-            persist_directory=persist_directory,
-            chroma_db_impl="duckdb+parquet"
-        ))
-        
-        # 尝试获取或创建集合
-        try:
-            self.collection = self.client.get_collection(collection_name)
-            print(f"Using existing collection: {collection_name}")
-        except:
-            self.collection = self.client.create_collection(
-                name=collection_name,
-                embedding_function=None  # 我们将提供自己的嵌入
-            )
-            print(f"Created new collection: {collection_name}")
     
     async def insert(self, texts: List[str], embeddings: np.ndarray) -> bool:
         try:
