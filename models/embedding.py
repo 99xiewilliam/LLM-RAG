@@ -84,7 +84,8 @@ class EmbeddingModel:
         else:
             # 否则使用mean pooling
             embeddings = self.mean_pooling(outputs, encoded['attention_mask'])
-            
+        
+        embeddings = embeddings.to(torch.float32)
         return embeddings.cpu().numpy()
 
     @staticmethod
