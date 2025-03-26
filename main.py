@@ -6,9 +6,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List, AsyncGenerator
 from models.embedding import EmbeddingModel
-from models.llm import AsyncDeepSeekLLM
+from models.llm_factory import LLMFactory
 from models.rerank import Reranker
-from database.chroma_client import AsyncChromaClient  # 修改为Chroma客户端
+from database.chroma_client import AsyncChromaClient
 from utils.document_processor import DocumentProcessor
 from core.rag_pipeline import AsyncRAGPipeline
 import json
@@ -18,43 +18,40 @@ async def load_config():
         return yaml.safe_load(f)
 
 async def initialize_components(config):
-    # Initialize embedding model
+    # 初始化 embedding 模型
     embedding_model = EmbeddingModel(
-        model_name_or_path=config.embedding.model_path  # Use model_name_or_path instead of model_name
+        model_name_or_path=config["model"]["embedding"]["model_path"]
     )
     
-    # Initialize LLM
-    llm = AsyncDeepSeekLLM(
-        model_path=config["model"]["llm"]["model_path"],
-        tensor_parallel_size=config["model"]["llm"]["tensor_parallel_size"],
-        max_concurrent_requests=config["model"]["llm"]["max_concurrent_requests"]
-    )
+    # 使用 LLMFactory 创建 LLM 实例
+    llm = LLMFactory.create(config["model"]["llm"])
     
-    # 初始化Chroma客户端
+    # 初始化 Chroma 客户端
     vector_store = AsyncChromaClient(
         persist_directory=config["vector_store"]["persist_directory"],
         collection_name=config["vector_store"]["collection_name"],
         embedding_dimension=config["vector_store"]["dim"]
     )
     
-    # Initialize reranker
+    # 初始化 reranker
     reranker = Reranker(
         model_name=config["model"]["rerank"]["model_name"],
         device=config["model"]["rerank"]["device"],
         local_models_dir=config["model"]["rerank"]["model_path"]
     )
     
-    # Initialize document processor
+    # 初始化文档处理器
     document_processor = DocumentProcessor(
         chunk_size=config["chunking"]["chunk_size"],
         chunk_overlap=config["chunking"]["chunk_overlap"],
         embedding_model=embedding_model
     )
     
+    # 返回 RAG pipeline
     return AsyncRAGPipeline(
         embedding_model=embedding_model,
         llm=llm,
-        vector_store=vector_store,  # 使用Chroma客户端
+        vector_store=vector_store,
         reranker=reranker,
         document_processor=document_processor,
         top_k=config["retrieval"]["top_k"],
