@@ -2,14 +2,16 @@ import asyncio
 import yaml
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, AsyncGenerator
 from models.embedding import EmbeddingModel
 from models.llm import AsyncDeepSeekLLM
 from models.rerank import Reranker
 from database.chroma_client import AsyncChromaClient  # 修改为Chroma客户端
 from utils.document_processor import DocumentProcessor
 from core.rag_pipeline import AsyncRAGPipeline
+import json
 
 async def load_config():
     with open("config/config.yaml", "r") as f:
@@ -129,6 +131,28 @@ async def query(query: Query):
         return {"response": response}
     except Exception as e:
         return {"error": str(e)}
+    
+@app.post("/query_stream")
+async def query_stream(query: Query):
+    """处理查询请求 (流式)"""
+    
+    async def response_generator() -> AsyncGenerator[str, None]:
+        try:
+            async for token in app.state.rag.process_query_stream(
+                query.text,
+                target_lang=query.target_language
+            ):
+                # 将每个token包装在SSE格式中
+                yield f"data: {json.dumps({'token': token})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
+    
+    return StreamingResponse(
+        response_generator(),
+        media_type="text/event-stream"
+    ) 
 
 @app.post("/add_documents")
 async def add_documents(doc_input: DocumentInput):
@@ -143,6 +167,7 @@ async def add_documents(doc_input: DocumentInput):
         return {"success": success}
     except Exception as e:
         return {"error": str(e)}
+
 
 if __name__ == "__main__":
     import uvicorn
