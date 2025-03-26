@@ -133,7 +133,7 @@ class AsyncOpenAILLM(BaseLLM):
             safe_max_tokens = max(256, min(1024, 2048 - int(estimated_input_tokens)))
             
             payload = {
-                "model": self.model,
+                # "model": self.model,
                 "messages": messages,
                 "max_tokens": max_tokens or safe_max_tokens,  # 使用安全值
                 "temperature": temperature or self.default_temperature,
