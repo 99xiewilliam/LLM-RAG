@@ -4,39 +4,23 @@ from transformers import AutoModel, AutoTokenizer
 import os
 
 class EmbeddingModel:
-    def __init__(
-        self, 
-        model_name: str, 
-        device: str = "cuda",
-        model_path: Optional[str] = None  # 添加本地模型路径参数
-    ):
-        """
-        初始化嵌入模型
-        Args:
-            model_name: 模型名称（用于在线下载时的标识）
-            device: 设备类型 ('cuda' 或 'cpu')
-            model_path: 模型的具体本地路径，如果提供则优先使用
-        """
+    def __init__(self, model_name_or_path):
         try:
-            if model_path and os.path.exists(model_path):
-                print(f"Loading embedding model from local path: {model_path}")
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    model_path,
-                    local_files_only=True
-                )
-                self.model = AutoModel.from_pretrained(
-                    model_path,
-                    local_files_only=True
-                ).to(device)
-            else:
-                print(f"Loading embedding model from HuggingFace: {model_name}")
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModel.from_pretrained(model_name).to(device)
+            # Use sentence-transformers for all models
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(model_name_or_path)
         except Exception as e:
-            raise RuntimeError(f"Failed to load embedding model: {str(e)}")
+            # Fall back to manual loading if sentence-transformers fails
+            try:
+                from transformers import AutoModel, AutoTokenizer
+                
+                self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, trust_remote_code=True)
+                self.model = AutoModel.from_pretrained(model_name_or_path, trust_remote_code=True)
+            except Exception as e2:
+                raise RuntimeError(f"Failed to load embedding model: {str(e)} and fallback also failed: {str(e2)}")
 
-        self.device = device
-        self.model.eval()
+            self.device = device
+            self.model.eval()
 
     @torch.no_grad()
     def encode(self, texts: Union[str, List[str]]) -> torch.Tensor:
