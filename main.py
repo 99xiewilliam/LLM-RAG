@@ -12,6 +12,7 @@ from database.chroma_client import AsyncChromaClient
 from utils.document_processor import DocumentProcessor
 from core.rag_pipeline import AsyncRAGPipeline
 import json
+from fastapi.middleware.cors import CORSMiddleware
 
 async def load_config():
     with open("config/config.yaml", "r") as f:
@@ -105,6 +106,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="RAG System API",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://47.237.107.123"],  # 允许指定的IP
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有HTTP方法
+    allow_headers=["*"],  # 允许所有HTTP头
 )
 
 class Query(BaseModel):
