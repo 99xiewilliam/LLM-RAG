@@ -58,30 +58,60 @@ class AsyncChromaClient:
             return False
     
     async def search(
-        self,
-        query_embedding: np.ndarray,
-        top_k: int = 5
-    ) -> List[Tuple[str, float]]:
-        try:
-            # 确保查询向量是正确的形状
-            if len(query_embedding.shape) == 1:
-                query_embedding = query_embedding.reshape(1, -1)
-            
-            # 执行搜索
-            results = self.collection.query(
-                query_embeddings=query_embedding.tolist(),
-                n_results=top_k,
-                include=["documents", "distances"]
-            )
-            
-            # 返回文本和距离
-            documents = results["documents"][0]
-            distances = results["distances"][0]
-            
-            return [(doc, dist) for doc, dist in zip(documents, distances)]
-        except Exception as e:
-            print(f"Error searching documents in Chroma: {e}")
-            return []
+           self,
+           query_embedding: np.ndarray,
+           top_k: int = 5,
+           max_tokens: int = 2000  # 添加token限制参数
+       ) -> List[Tuple[str, float]]:
+       try:
+           # 执行搜索
+           results = self.collection.query(
+               query_embeddings=query_embedding.tolist(),
+               n_results=top_k * 2,  # 检索更多结果，以便过滤后仍有足够数据
+               include=["documents", "distances"]
+           )
+           
+           # 提取文本和距离
+           documents = results["documents"][0]
+           distances = results["distances"][0]
+           
+           # 清理并限制token数量
+           cleaned_results = []
+           total_tokens = 0
+           def clean_text(text):
+            """清理文本中的乱码和向量数据"""
+            # 移除可能的向量数据（包含大量特殊字符的部分）
+            import re
+            # 移除类似向量或编码的内容
+            cleaned = re.sub(r'[^\w\s\u4e00-\u9fff.,?!;:()\[\]{}"\'-]+', ' ', text)
+            # 移除多余空格
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+            return cleaned
+           for doc, dist in zip(documents, distances):
+               # 清理文本
+               cleaned_doc = clean_text(doc)
+               
+               # 估算token数
+               estimated_tokens = len(cleaned_doc.split()) * 1.5
+               
+               # 如果添加此文档会超出限制，跳过
+               if total_tokens + estimated_tokens > max_tokens:
+                   break
+               
+               # 添加到结果中
+               cleaned_results.append((cleaned_doc, dist))
+               total_tokens += estimated_tokens
+               
+               # 如果已达到原始top_k要求，停止
+               if len(cleaned_results) >= top_k:
+                   break
+           
+           return cleaned_results
+       except Exception as e:
+           print(f"Error searching documents in Chroma: {e}")
+           return []
+
+        
     
     # 不需要显式保存，Chroma会自动持久化
     def save_index(self):
@@ -89,3 +119,5 @@ class AsyncChromaClient:
         # Chroma会自动保存，无需显式操作
         print("Chroma automatically persists data")
         pass
+
+    
