@@ -67,7 +67,7 @@ class AsyncChromaClient:
            # 执行搜索
            results = self.collection.query(
                query_embeddings=query_embedding.tolist(),
-               n_results=top_k * 2,  # 检索更多结果，以便过滤后仍有足够数据
+               n_results=top_k,  # 检索更多结果，以便过滤后仍有足够数据
                include=["documents", "distances"]
            )
            
@@ -87,6 +87,7 @@ class AsyncChromaClient:
             # 移除多余空格
             cleaned = re.sub(r'\s+', ' ', cleaned).strip()
             return cleaned
+           
            for doc, dist in zip(documents, distances):
                # 清理文本
                cleaned_doc = clean_text(doc)
@@ -110,8 +111,6 @@ class AsyncChromaClient:
        except Exception as e:
            print(f"Error searching documents in Chroma: {e}")
            return []
-
-        
     
     # 不需要显式保存，Chroma会自动持久化
     def save_index(self):

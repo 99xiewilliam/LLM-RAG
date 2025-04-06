@@ -4,8 +4,8 @@ model:
     # 对于OpenAI API:
     api_base_url: "http://localhost:8000/v1"
     model: "/home/xwh/data/models/QwQ-32B-AWQ"
-    max_tokens: 2048
-    temperature: 0.7
+    max_tokens: 8192
+    temperature: 0.6
     # model_path: "/root/autodl-tmp/root/autodl-tmp/deepseek14b"
     # tensor_parallel_size: 1
     # max_tokens: 2048
@@ -28,7 +28,7 @@ vector_store:
   type: "chroma"
   host: "localhost"
   port: 8090
-  collection_name: "apec_collection"
+  collection_name: "apec_collection_3"
   dim: 1024
 
 chunking:

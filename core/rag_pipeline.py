@@ -17,8 +17,8 @@ class AsyncRAGPipeline:
         vector_store: AsyncChromaClient,
         reranker: Reranker,
         document_processor: DocumentProcessor,
-        top_k: int = 5,
-        rerank_top_k: int = 3
+        top_k: int = 3,
+        rerank_top_k: int = 2
     ):
         self.embedding_model = embedding_model
         self.llm = llm
